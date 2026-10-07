@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What's that sound?</title>
+<meta name="description" content="Upload a clip or screen recording and find out what the sound effect is called.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EEF0F7;
+    --panel:#FFFFFF;
+    --ink:#1C1A4B;
+    --ink-soft:#5B5A82;
+    --line:#D5D8E8;
+    --signal:#FF4A5C;
+    --signal-dark:#D92B3E;
+    --wave:#3D5AFE;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:'Instrument Sans',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    font-size:17px;line-height:1.55;
+  }
+  main{max-width:720px;margin:0 auto;padding:40px 20px 80px}
+  h1{
+    font-family:'Bricolage Grotesque','Instrument Sans',system-ui,sans-serif;
+    font-weight:800;font-size:clamp(2.4rem,8vw,3.8rem);line-height:1;letter-spacing:-0.03em;margin:0 0 14px;
+  }
+  .lede{color:var(--ink-soft);margin:0 0 32px;max-width:52ch}
+  h2{font-family:'Bricolage Grotesque','Instrument Sans',sans-serif;font-weight:600;font-size:1.25rem;margin:0 0 10px;letter-spacing:-0.01em}
+  .hint{font-size:.88rem;color:var(--ink-soft);margin:0 0 6px}
+  :focus-visible{outline:3px solid var(--wave);outline-offset:2px}
+
+  .drop{
+    position:relative;display:block;background:var(--panel);border:2px dashed #B6BBDA;border-radius:var(--radius);
+    padding:36px 20px 30px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;
+  }
+  .drop:hover,.drop.over{border-color:var(--signal);background:#FFF8F8}
+  .drop input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+  .bars{display:flex;align-items:center;justify-content:center;gap:4px;height:56px;margin-bottom:14px}
+  .bars i{display:block;width:5px;border-radius:3px;background:var(--wave);height:var(--h)}
+  .drop.busy .bars i{animation:pulse .9s ease-in-out infinite;animation-delay:var(--d);background:var(--signal)}
+  @keyframes pulse{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+  @media (prefers-reduced-motion:reduce){.drop.busy .bars i{animation:none}}
+  .drop strong{display:block;font-size:1.1rem}
+  .drop span.sub{color:var(--ink-soft);font-size:.92rem}
+
+  .picked{display:none;margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+  .picked.show{display:block}
+  .picked .fname{font-weight:600;word-break:break-all;margin-bottom:8px}
+  .picked audio,.picked video{width:100%;max-height:220px;border-radius:8px}
+  button.go{
+    margin-top:14px;width:100%;padding:14px 18px;border:0;border-radius:12px;background:var(--signal);color:#fff;
+    font:inherit;font-weight:600;font-size:1.05rem;cursor:pointer;transition:background .15s
+  }
+  button.go:hover{background:var(--signal-dark)}
+  button.go:disabled{background:#C9CBE0;cursor:not-allowed}
+
+  .msg{display:none;margin-top:16px;padding:12px 14px;border-radius:10px;font-size:.95rem}
+  .msg.show{display:block}
+  .msg.err{background:#FFE9EC;color:#8A1224;border:1px solid #FFC4CC}
+
+  #result{display:none;margin-top:32px}
+  #result.show{display:block}
+  .answer{background:var(--ink);color:#fff;border-radius:var(--radius);padding:22px 22px 20px}
+  .answer .label{color:#B9BCF0;font-size:.9rem;margin-bottom:4px}
+  .answer .name{font-family:'Bricolage Grotesque','Instrument Sans',sans-serif;font-weight:800;font-size:clamp(1.8rem,6vw,2.5rem);line-height:1.05;letter-spacing:-0.02em;margin:0 0 10px}
+  .answer p{margin:6px 0;color:#E4E5FF}
+  .answer .meta{font-size:.9rem;color:#B9BCF0}
+
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 0;padding:0;list-style:none}
+  .chip{
+    border:1px solid #7C80D6;background:transparent;color:#fff;border-radius:999px;padding:7px 14px;font:inherit;font-size:.95rem;cursor:pointer
+  }
+  .chip:hover{background:#2B2970}
+  .chip[aria-pressed=true]{background:var(--signal);border-color:var(--signal);color:#fff}
+
+  .matches{margin-top:28px}
+  .match{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px}
+  .match .top{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin-bottom:6px}
+  .match .nm{font-weight:600;word-break:break-word}
+  .match .dur{color:var(--ink-soft);font-size:.88rem;white-space:nowrap}
+  .match audio{width:100%;height:38px}
+  .match a{color:var(--wave);font-size:.9rem}
+
+  .elsewhere{margin-top:24px;font-size:.95rem}
+  .elsewhere a{color:var(--wave);margin-right:14px;white-space:nowrap}
+  .small{font-size:.85rem;color:var(--ink-soft);margin-top:36px}
+</style>
+</head>
+<body>
+<main>
+  <h1>What's that sound?</h1>
+  <p class="lede">Drop in a clip or a screen recording. You'll get the name people use for that sound, plus real sound files you can preview and download.</p>
+
+  <label class="drop" id="drop">
+    <input type="file" id="file" accept="audio/*,video/*">
+    <div class="bars" id="bars" aria-hidden="true"></div>
+    <strong>Choose a clip, or drop it here</strong>
+    <span class="sub">Audio or video. Screen recordings work too. We listen to the first 20 seconds.</span>
+  </label>
+
+  <div class="picked" id="picked">
+    <div class="fname" id="fname"></div>
+    <div id="player"></div>
+    <button class="go" id="go">Find this sound</button>
+  </div>
+
+  <div class="msg" id="msg" role="status"></div>
+
+  <section id="result" aria-live="polite">
+    <div class="answer">
+      <div class="label">Search for this</div>
+      <div class="name" id="bestName"></div>
+      <p id="what"></p>
+      <p class="meta" id="metaLine"></p>
+      <div class="label" style="margin-top:16px">Other names to try</div>
+      <ul class="chips" id="chips"></ul>
+    </div>
+
+    <div class="matches">
+      <h2 id="matchTitle">Matching sounds</h2>
+      <div id="matches"></div>
+    </div>
+
+    <div class="elsewhere" id="elsewhere"></div>
+  </section>
+
+  <p class="small">Sound names come from an AI listening to your clip, so check them against the previews. Matches are from Freesound.org and each has its own license. Your clip is only used to identify the sound.</p>
+</main>
+
+<script>
+const CONFIG = {
+  maxFileMB: 300,     // big screen recordings are fine: only the audio is sent
+  maxSeconds: 20,     // how much of the clip to listen to
+  sampleRate: 22050   // keeps the upload small
+};
+
+const $ = s => document.querySelector(s);
+function el(tag, props = {}, ...kids){
+  const e = document.createElement(tag);
+  for(const [k,v] of Object.entries(props)){
+    if(k === 'class') e.className = v;
+    else if(k === 'text') e.textContent = v;
+    else if(k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v);
+  }
+  kids.flat().forEach(c => e.append(c));
+  return e;
+}
+function showMsg(text){ const m = $('#msg'); m.className = 'msg show err'; m.textContent = text; }
+function hideMsg(){ $('#msg').className = 'msg'; }
+
+(function buildBars(){
+  const heights = [18,30,44,26,52,38,22,48,34,56,28,42,20,50,32,24,46,36,54,30,40,22,48,28];
+  heights.forEach((h,i) => {
+    const b = document.createElement('i');
+    b.style.setProperty('--h', h + 'px');
+    b.style.setProperty('--d', (i * 0.07).toFixed(2) + 's');
+    $('#bars').append(b);
+  });
+})();
+
+/* ---------- file picking ---------- */
+let currentFile = null;
+let objectUrl = null;
+const drop = $('#drop');
+const fileInput = $('#file');
+
+['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => { if(e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', () => { if(fileInput.files[0]) setFile(fileInput.files[0]); });
+
+function setFile(file){
+  hideMsg();
+  $('#result').classList.remove('show');
+  const isMedia = file.type.startsWith('audio/') || file.type.startsWith('video/');
+  if(!isMedia){ showMsg('That file is not audio or video. Try an MP3, WAV, MP4, MOV or WEBM file.'); return; }
+  if(file.size > CONFIG.maxFileMB * 1024 * 1024){
+    showMsg(`That file is ${(file.size/1048576).toFixed(0)} MB. Trim it under ${CONFIG.maxFileMB} MB and try again.`);
+    return;
+  }
+  currentFile = file;
+  if(objectUrl) URL.revokeObjectURL(objectUrl);
+  objectUrl = URL.createObjectURL(file);
+  $('#fname').textContent = file.name;
+  const media = el(file.type.startsWith('video/') ? 'video' : 'audio', { controls: '', src: objectUrl, preload: 'metadata' });
+  $('#player').replaceChildren(media);
+  $('#picked').classList.add('show');
+}
+
+/* ---------- shrink the audio in the browser ---------- */
+function encodeWav(samples, sampleRate){
+  const buffer = new ArrayBuffer(44 + samples.length * 2);
+  const v = new DataView(buffer);
+  const write = (o, s) => { for(let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  write(0, 'RIFF'); v.setUint32(4, 36 + samples.length * 2, true);
+  write(8, 'WAVE'); write(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sampleRate, true); v.setUint32(28, sampleRate * 2, true);
+  v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  write(36, 'data'); v.setUint32(40, samples.length * 2, true);
+  let o = 44;
+  for(let i = 0; i < samples.length; i++, o += 2){
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    v.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+  }
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
+async function toSmallWav(file){
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  const ctx = new AC();
+  let decoded;
+  try{
+    decoded = await ctx.decodeAudioData(await file.arrayBuffer());
+  }catch{
+    throw new Error('Could not read the audio in that file. Try an MP3, WAV, or MP4 and make sure it has sound.');
+  }finally{
+    ctx.close();
+  }
+  const seconds = Math.min(decoded.duration, CONFIG.maxSeconds);
+  const off = new OAC(1, Math.max(1, Math.ceil(seconds * CONFIG.sampleRate)), CONFIG.sampleRate);
+  const src = off.createBufferSource();
+  src.buffer = decoded;
+  src.connect(off.destination);
+  src.start(0);
+  const rendered = await off.startRendering();
+  return encodeWav(rendered.getChannelData(0), CONFIG.sampleRate);
+}
+
+function blobToBase64(blob){
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(',')[1]);
+    r.onerror = () => reject(new Error('Could not read that file.'));
+    r.readAsDataURL(blob);
+  });
+}
+
+/* ---------- talk to the server functions ---------- */
+async function identifySound(file){
+  const wav = await toSmallWav(file);
+  const data = await blobToBase64(wav);
+  let res;
+  try{
+    res = await fetch('/.netlify/functions/identify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data })
+    });
+  }catch{
+    throw new Error('Could not reach the server. Check your connection and try again.');
+  }
+  const body = await res.json().catch(() => ({}));
+  if(!res.ok) throw new Error(body.error || 'Something went wrong. Try again.');
+  return body;
+}
+
+async function searchSounds(term){
+  const res = await fetch('/.netlify/functions/search?q=' + encodeURIComponent(term));
+  const body = await res.json().catch(() => ({}));
+  if(!res.ok) throw new Error(body.error || 'Search failed.');
+  return body.results || [];
+}
+
+/* ---------- show results ---------- */
+let activeTerm = '';
+
+async function loadMatches(term){
+  activeTerm = term;
+  document.querySelectorAll('#chips .chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.term === term)));
+  $('#matchTitle').textContent = `Sounds for "${term}"`;
+  const box = $('#matches');
+  box.replaceChildren(el('p', { class: 'hint', text: 'Searching Freesound…' }));
+  try{
+    const results = await searchSounds(term);
+    if(term !== activeTerm) return;
+    if(!results.length){
+      box.replaceChildren(el('p', { text: 'No short sounds found for that name. Try another name above.' }));
+      return;
+    }
+    box.replaceChildren(...results.map(r =>
+      el('div', { class: 'match' },
+        el('div', { class: 'top' },
+          el('span', { class: 'nm', text: r.name }),
+          el('span', { class: 'dur', text: r.duration.toFixed(1) + ' s' })
+        ),
+        r.preview ? el('audio', { controls: '', preload: 'none', src: r.preview }) : '',
+        el('a', { href: r.url, target: '_blank', rel: 'noopener', text: 'Open on Freesound to download (by ' + r.username + ')' })
+      )
+    ));
+  }catch(err){
+    box.replaceChildren(el('p', { text: err.message }));
+  }
+}
+
+function renderResult(r){
+  const terms = [];
+  [r.best_name, ...(r.search_terms || []), ...(r.also_called || [])].forEach(t => {
+    if(t && !terms.some(x => x.toLowerCase() === t.toLowerCase())) terms.push(t);
+  });
+  $('#bestName').textContent = r.best_name || terms[0] || 'Unknown sound';
+  $('#what').textContent = r.what_it_is || '';
+  const bits = [];
+  if(r.category) bits.push('Type: ' + r.category);
+  if(r.confidence) bits.push('Confidence: ' + r.confidence);
+  $('#metaLine').textContent = bits.join(' | ');
+
+  $('#chips').replaceChildren(...terms.slice(0, 8).map(t =>
+    el('li', {}, el('button', { class: 'chip', type: 'button', 'data-term': t, 'aria-pressed': 'false', text: t, onclick: () => loadMatches(t) }))
+  ));
+
+  const first = terms[0] || 'sound effect';
+  const q = encodeURIComponent(first);
+  $('#elsewhere').replaceChildren(
+    document.createTextNode('Also search: '),
+    el('a', { href: 'https://www.youtube.com/results?search_query=' + q + '+sound+effect', target: '_blank', rel: 'noopener', text: 'YouTube' }),
+    el('a', { href: 'https://www.myinstants.com/en/search/?name=' + q, target: '_blank', rel: 'noopener', text: 'Myinstants (meme sounds)' }),
+    el('a', { href: 'https://pixabay.com/sound-effects/search/' + q + '/', target: '_blank', rel: 'noopener', text: 'Pixabay' }),
+    el('a', { href: 'https://freesound.org/search/?q=' + q, target: '_blank', rel: 'noopener', text: 'Freesound' })
+  );
+
+  $('#result').classList.add('show');
+  loadMatches(first);
+  $('#result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ---------- go ---------- */
+$('#go').addEventListener('click', async () => {
+  hideMsg();
+  if(!currentFile){ showMsg('Choose a clip first.'); return; }
+  const btn = $('#go');
+  btn.disabled = true;
+  btn.textContent = 'Listening…';
+  drop.classList.add('busy');
+  $('#result').classList.remove('show');
+  try{
+    renderResult(await identifySound(currentFile));
+  }catch(err){
+    showMsg(err.message || 'Something went wrong. Try again.');
+  }finally{
+    btn.disabled = false;
+    btn.textContent = 'Find this sound';
+    drop.classList.remove('busy');
+  }
+});
+</script>
+</body>
+</html>
